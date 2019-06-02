@@ -553,10 +553,10 @@ void inr(State *state, uint8_t *value)
     uint16_t tmp = 1 + (uint16_t)(*value);
 
     // Set AC flag
-    if (((*value & 0xF) + 1) > 0xF)
+    if (((*value & 0xF) + 1) < 0xF)
         state->codes->ac = 0x1;
 
-    *value++;
+    *value = (uint8_t)tmp;
     
     // Set flags
     setAllButCarry(state, tmp);
@@ -570,7 +570,7 @@ void dcr(State *state, uint8_t *value)
     if ((*value & 0xF) == 0)
         state->codes->ac = 0x1;
 
-    *value--;
+    *value = (uint8_t)tmp;
     
     // Set flags
     setAllButCarry(state, tmp);
@@ -665,6 +665,15 @@ int emulate8080(State *state)
     int8_t length = 1;
 
     state->pc++; // Go to next instruction (this function will be in a loop)
+    
+    printf("\t");
+	printf("%c", state->codes->z ? 'z' : '.');
+	printf("%c", state->codes->s ? 's' : '.');
+	printf("%c", state->codes->p ? 'p' : '.');
+	printf("%c", state->codes->c ? 'c' : '.');
+	printf("%c  ", state->codes->ac ? 'a' : '.');
+	printf("A $%02x B $%02x C $%02x D $%02x E $%02x H $%02x L $%02x SP %04x\n", state->a, state->b, state->c,
+				state->d, state->e, state->h, state->l, state->sp);
 
     switch (code[0])
     {
@@ -1556,6 +1565,7 @@ State *init8080()
 {
     State *state = calloc(1, sizeof(State));
     state->mem = malloc(0x10000); // 16kb
+    state->codes = malloc(sizeof(Codes));
     return state;
 }
 
