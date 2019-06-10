@@ -436,13 +436,13 @@ int parity(uint8_t num)
 void setArithFlags(State *state, uint16_t result)
 {
     // carry
-    state->codes->c = ((result & 0x100) == 1);
+    state->codes->c = ((result & 0x100) == 0x100);
 
     // zero
     state->codes->z = ((result & 0xFF) == 0);
 
     // sign
-    state->codes->s = ((result & 0x80) == 1);
+    state->codes->s = ((result & 0x80) == 0x80);
 
     // parity
     state->codes->p = parity((uint8_t)(result & 0xFF));
@@ -456,7 +456,7 @@ void setAllButCarry(State *state, uint16_t result)
     state->codes->z = ((result & 0xFF) == 0);
 
     // sign
-    state->codes->s = ((result & 0x80) == 1);
+    state->codes->s = ((result & 0x80) == 0x80);
 
     // parity
     state->codes->p = parity((uint8_t)(result & 0xFF));
@@ -465,7 +465,7 @@ void setAllButCarry(State *state, uint16_t result)
 // Set the carry flag based on result
 void setCarry(State *state, uint16_t result)
 {
-    state->codes->c = ((result & 0x100) == 1);
+    state->codes->c = ((result & 0x100) == 0x100);
 }
 
 // Adds num to register A
@@ -629,6 +629,7 @@ void push(State *state, uint8_t hi, uint8_t lo)
     state->mem[state->sp] = hi;
     state->sp--;
     state->mem[state->sp] = lo;
+    //printf("\n\nPushed on: %02x%02x\n\n", state->mem[state->sp + 1], state->mem[state->sp]);
 }
 
 void pop(State *state, uint8_t *hi, uint8_t *lo)
@@ -637,6 +638,10 @@ void pop(State *state, uint8_t *hi, uint8_t *lo)
     state->sp++;
     *hi = state->mem[state->sp];
     state->sp++;
+    //printf("\n\nPopped off: %02x%02x\n\n", *hi, *lo);
+    //printf("Stack view of popped: %02x%02x\n\n", state->mem[state->sp - 1], state->mem[state->sp - 2]);
+    //printf("2nd on stack: %02x%02x\n\n", state->mem[state->sp - 3], state->mem[state->sp - 4]);
+    //printf("Above stack: %02x%02x\n\n", state->mem[state->sp + 1], state->mem[state->sp]);
 }
 
 void call(State *state, uint8_t cond, uint16_t addr)
@@ -658,13 +663,20 @@ void ret(State* state)
     state->pc = (uint16_t)(hi << 8) | (uint16_t)lo;
 }
 
+void stackPeek(State *state)
+{
+    printf("Above %02x%02x\n\n", state->mem[state->sp + 3], state->mem[state->sp + 2]);
+    printf("Top of stack: %02x%02x\n\n", state->mem[state->sp + 1], state->mem[state->sp]);
+    printf("Below: %02x%02x\n\n", state->mem[state->sp - 1], state->mem[state->sp - 1]);
+}
+
 // Use the buf full of data and update the current state based on the instruction
 int emulate8080(State *state)
 {
     unsigned char *code = &(state->mem[state->pc]);
-    int8_t length = 1;
-
-    state->pc++; // Go to next instruction (this function will be in a loop)
+    // printf("0x%04x", state->pc);
+    disassemble8080(state->mem, state->pc);
+    state->pc++;
     
     printf("\t");
 	printf("%c", state->codes->z ? 'z' : '.');
@@ -674,6 +686,8 @@ int emulate8080(State *state)
 	printf("%c  ", state->codes->ac ? 'a' : '.');
 	printf("A $%02x B $%02x C $%02x D $%02x E $%02x H $%02x L $%02x SP %04x\n", state->a, state->b, state->c,
 				state->d, state->e, state->h, state->l, state->sp);
+    
+    stackPeek(state);
 
     switch (code[0])
     {
@@ -882,8 +896,10 @@ int emulate8080(State *state)
         }
         case 0x1A:
         {
+            printf("val before: %x\n",state->mem[state->sp]);
             uint16_t addr = ((uint16_t)state->d << 8) | (uint16_t)state->e;
             state->a = state->mem[addr];
+            printf("val after: %x\n",state->mem[state->sp]);
             break;
         }
 
@@ -1565,7 +1581,23 @@ State *init8080()
 {
     State *state = calloc(1, sizeof(State));
     state->mem = malloc(0x10000); // 16kb
+    if (state->mem == NULL)
+        exit(1);
     state->codes = malloc(sizeof(Codes));
+    state->a = 0;
+    state->b = 0;
+    state->c = 0;
+    state->d = 0;
+    state->e = 0;
+    state->h = 0;
+    state->l = 0;
+    state->pc = 0;
+    state->sp = 0xf000;
+    state->codes->ac = 0;
+    state->codes->c = 0;
+    state->codes->p = 0;
+    state->codes->s = 0;
+    state->codes->z = 0;
     return state;
 }
 
@@ -1582,28 +1614,29 @@ int main(int argc, char **argv)
 
     int fd = fileno(f);
 
-    int size;
     struct stat st;
 
     /* get the size of the file */
-    if (fstat(fd, &st) == 0)
-        size = st.st_size;
+    if (fstat(fd, &st) != 0)
+        exit(EXIT_FAILURE);
+    int size = st.st_size;
 
     /* write into the buffer */
-    unsigned char *buf = malloc(size);
-    fread(buf, size, 1, f);
 
+    State *state = init8080();
+
+    fread(state->mem, size, 1, f);
     fclose(f);
 
     // Main routine
-    
-    State *state = init8080();
-    state->mem = buf;
-    free(buf);
-    int done = 0;
-    while (!done)
-        emulate8080(state);
 
+    int done = 0;
+    while (done)
+    {
+        emulate8080(state);
+        // done++;
+    }
+    free(state->codes);
     free(state);
     return 0;
 }
