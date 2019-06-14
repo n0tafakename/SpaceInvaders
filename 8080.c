@@ -4,19 +4,19 @@
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include "8080.h"
 
-
-// Holds values of flags (could be stored in one 8-bit word)
+/*
+// Holds values of flags
 typedef struct
 {
-    uint8_t z; // zero
-    uint8_t c; // carry
-    uint8_t p; // parity set when even
-    uint8_t s; // sign
-    uint8_t ac; // half carry (auxiliary carry), bit 4 is set
+    uint8_t z;  // zero
+    uint8_t c;  // carry
+    uint8_t p;  // parity
+    uint8_t s;  // sign
+    uint8_t ac; // auxiliary carry
 } Codes;
 
-// Holds registers and CCs (also a register), also memory and int_en
 typedef struct
 {
     uint16_t pc;
@@ -28,13 +28,14 @@ typedef struct
     uint8_t e;
     uint8_t h;
     uint8_t l;
-    bool int_en; // interrupt enable (INTE flip-flop)
+    bool int_en; // interrupt enable
     uint8_t *mem;
     Codes *codes;
 } State;
+*/
 
-// Reads in machine code and prints out 8080 assembly code
-int disassemble8080(unsigned char *buf, unsigned int pc)
+// print machine code for buf[pc] (Useful for debugging)
+static int disassemble8080(unsigned char *buf, unsigned int pc)
 {
     unsigned char *code = &buf[pc];
     int8_t length = 1;
@@ -45,43 +46,14 @@ int disassemble8080(unsigned char *buf, unsigned int pc)
     {
         /* 1 byte codes */
 
-        // MISC
-        case 0x00: {
-            printf("NOP");
-            break;
-        }
+        case 0x00: printf("NOP"); break;
+        case 0x76: printf("HLT"); break;
+        case 0xF3: printf("DI"); break;
+        case 0xFB: printf("EI"); break;
+        case 0xF9: printf("SPHL"); break;
+        case 0xE3: printf("XTHL"); break;
+        case 0xE9: printf("PCHL"); break;
 
-        case 0x76: {
-            printf("HLT");
-            break;
-        }
-
-        case 0xF3: {
-            printf("DI");
-            break;
-        }
-
-        case 0xFB: {
-            printf("EI");
-            break;
-        }
-
-        case 0xF9: {
-            printf("SPHL");
-            break;
-        }
-
-        case 0xE3: {
-            printf("XTHL");
-            break;
-        }
-
-        case 0xE9: {
-            printf("PCHL");
-            break;
-        }
-
-        // RST
         case 0xC7: printf("RST    0"); break;
         case 0xCF: printf("RST    1"); break;
         case 0xD7: printf("RST    2"); break;
@@ -101,58 +73,19 @@ int disassemble8080(unsigned char *buf, unsigned int pc)
         case 0xF0: printf("RP"); break;
         case 0xF8: printf("RM"); break;
 
-        // MISC
-        case 0xC9: {
-            printf("RET");
-            break;
-        }
+        case 0xC9: printf("RET"); break;
+        case 0x37: printf("STC"); break;
+        case 0x3F: printf("CMC"); break;
+        case 0x2F: printf("CMA"); break;
 
-        case 0x37: {
-            printf("STC");
-            break;
-        }
+        case 0x1F: printf("RAR"); break;
+        case 0x17: printf("RAL"); break;
+        case 0x0F: printf("RRC"); break;
+        case 0x07: printf("RLC"); break;
 
-        case 0x3F: {
-            printf("CMC");
-            break;
-        }
+        case 0x27: printf("DAA"); break;
+        case 0xEB: printf("XCHG"); break;
 
-        case 0x2F: {
-            printf("CMA");
-            break;
-        }
-
-        case 0x1F: {
-            printf("RAR");
-            break;
-        }
-
-        case 0x17: {
-            printf("RAL");
-            break;
-        }
-
-        case 0x0F: {
-            printf("RRC");
-            break;
-        }
-
-        case 0x07: {
-            printf("RLC");
-            break;
-        }
-
-        case 0x27: {
-            printf("DAA");
-            break;
-        }
-
-        case 0xEB: {
-            printf("XCHG");
-            break;
-        }
-
-        // Might not be correct (Using double names, not single) Does that matter?
         case 0x0A: printf("LDAX    BC"); break;
         case 0x1A: printf("LDAX    DE"); break;
 
@@ -350,7 +283,6 @@ int disassemble8080(unsigned char *buf, unsigned int pc)
 
         /* 2 byte codes */
 
-        // MISC
         case 0xD3: printf("OUT    #$%02x", code[1]); length = 2; break;
         case 0xDB: printf("IN    #$%02x", code[1]); length = 2; break;
         case 0xFE: printf("CPI    #$%02x", code[1]); length = 2; break;
@@ -374,7 +306,6 @@ int disassemble8080(unsigned char *buf, unsigned int pc)
 
         /* 3 byte codes */
 
-        // MISC
         case 0x3A: printf("LDA    $%02x%02x", code[2], code[1]); length = 3; break;
         case 0x32: printf("STA    $%02x%02x", code[2], code[1]); length = 3; break;
         case 0x22: printf("SHLD    $%02x%02x", code[2], code[1]); length = 3; break;
@@ -414,16 +345,16 @@ int disassemble8080(unsigned char *buf, unsigned int pc)
     return length;
 }
 
-// Error message for unimplemented instructions (add more info later)
-int UnimplementedInstruction(unsigned int instruction)
+// Error message for unimplemented instructions
+static int UnimplementedInstruction(unsigned int instruction)
 {
     printf("Well... shit...\n");
-    printf("%02x is not implemented (either by me or the program is fucked)", instruction);
+    printf("%02x is not implemented", instruction);
     exit(EXIT_FAILURE);
 }
 
 // Returns 1 if the number bits set is even
-int parity(uint8_t num)
+static int parity(uint8_t num)
 {
     uint8_t tmp1, tmp2;
     tmp1 = num ^ (num >> 1);
@@ -432,46 +363,32 @@ int parity(uint8_t num)
 }
 
 // Set flags based on the result of the operation
-// TODO: figure out auxiliary carry
-void setArithFlags(State *state, uint16_t result)
+static void setArithFlags(State *state, uint16_t result)
 {
-    // carry
     state->codes->c = ((result & 0x100) == 0x100);
-
-    // zero
     state->codes->z = ((result & 0xFF) == 0);
-
-    // sign
     state->codes->s = ((result & 0x80) == 0x80);
-
-    // parity
     state->codes->p = parity((uint8_t)(result & 0xFF));
-
 }
 
 // Sets every flag except for the carry flag
-void setAllButCarry(State *state, uint16_t result)
+static void setAllButCarry(State *state, uint16_t result)
 {
-    // zero
     state->codes->z = ((result & 0xFF) == 0);
-
-    // sign
     state->codes->s = ((result & 0x80) == 0x80);
-
-    // parity
     state->codes->p = parity((uint8_t)(result & 0xFF));
 }
 
 // Set the carry flag based on result
-void setCarry(State *state, uint16_t result)
+static void setCarry(State *state, uint16_t result)
 {
     state->codes->c = ((result & 0x100) == 0x100);
 }
 
 // Adds num to register A
-void add(State *state, uint16_t num, bool carry)
+static void add(State *state, uint16_t num, bool carry)
 {
-    uint16_t tmp = (uint16_t)state->a + num;
+    uint16_t tmp = (uint16_t)(state->a) + num;
     if (carry) tmp++;
 
     // Set AC flag
@@ -480,12 +397,12 @@ void add(State *state, uint16_t num, bool carry)
 
     state->a = (uint8_t)tmp;
 
-    // Set flags
+    // Set others
     setArithFlags(state, tmp);
 }
 
 // Subtracts num from register A
-void sub(State *state, uint16_t num, bool borrow)
+static void sub(State *state, uint16_t num, bool borrow)
 {
     uint16_t tmp = (uint16_t)state->a - num;
     if (borrow) tmp++;
@@ -500,7 +417,7 @@ void sub(State *state, uint16_t num, bool borrow)
 }
 
 // And num with register A
-void and(State *state, uint16_t num)
+static void and(State *state, uint16_t num)
 {
     uint16_t tmp = (uint16_t)state->a & num;
     state->a = (uint8_t)tmp;
@@ -510,7 +427,7 @@ void and(State *state, uint16_t num)
 }
 
 // Or num with register A
-void or(State *state, uint16_t num)
+static void or(State *state, uint16_t num)
 {
     uint16_t tmp = (uint16_t)state->a | num;
     state->a = (uint8_t)tmp;
@@ -520,7 +437,7 @@ void or(State *state, uint16_t num)
 }
 
 // Xor num with register A
-void xor(State *state, uint16_t num)
+static void xor(State *state, uint16_t num)
 {
     uint16_t tmp = (uint16_t)state->a ^ num;
     state->a = (uint8_t)tmp;
@@ -530,7 +447,7 @@ void xor(State *state, uint16_t num)
 }
 
 // Set flags according to the result of a - num
-void cmp(State *state, uint16_t num)
+static void cmp(State *state, uint16_t num)
 {
     uint16_t tmp = (uint16_t)state->a - num;
 
@@ -538,7 +455,7 @@ void cmp(State *state, uint16_t num)
     if (((state->a & 0xF0) - (num & 0xF0)) != ((state->a - num) & 0xF0))
         state->codes->ac = 0x1;
 
-    // Set flags
+    // Set others
     setArithFlags(state, tmp);
 
     // Flip carry flag if sign does not match
@@ -548,7 +465,7 @@ void cmp(State *state, uint16_t num)
 }
 
 // Increment register value
-void inr(State *state, uint8_t *value)
+static void inr(State *state, uint8_t *value)
 {
     uint16_t tmp = 1 + (uint16_t)(*value);
 
@@ -563,7 +480,7 @@ void inr(State *state, uint8_t *value)
 }
 
 // Decrement register value
-void dcr(State *state, uint8_t *value)
+static void dcr(State *state, uint8_t *value)
 {
     uint16_t tmp = (uint16_t)(*value) - 1;
 
@@ -577,13 +494,13 @@ void dcr(State *state, uint8_t *value)
 }
 
 // Set the destination (reg or mem) to the value of source (reg or mem)
-void mov(uint8_t *dest, uint8_t *src)
+static void mov(uint8_t *dest, uint8_t *src)
 {
     *dest = *src;
 }
 
 // Increment register pair
-void inx(uint8_t *hi, uint8_t *lo)
+static void inx(uint8_t *hi, uint8_t *lo)
 {
     uint16_t tmp = ((uint16_t)(*hi) << 8) | (uint16_t)(*lo);
     tmp++;
@@ -592,7 +509,7 @@ void inx(uint8_t *hi, uint8_t *lo)
 }
 
 // Decrement register pair
-void dcx(uint8_t *hi, uint8_t *lo)
+static void dcx(uint8_t *hi, uint8_t *lo)
 {
     uint16_t tmp = ((uint16_t)(*hi) << 8) | (uint16_t)(*lo);
     tmp--;
@@ -601,7 +518,7 @@ void dcx(uint8_t *hi, uint8_t *lo)
 }
 
 // Add value to value stored in mem at HL
-void dad(State* state, uint16_t value)
+static void dad(State* state, uint16_t value)
 {
 
     uint16_t new = ((uint16_t)state->h << 8) | (uint16_t)state->l;
@@ -614,7 +531,7 @@ void dad(State* state, uint16_t value)
 }
 
 // Jump to new address if condition is true, otherwise continue execution
-void jump(State* state, uint8_t cond, uint16_t addr)
+static void jump(State* state, uint8_t cond, uint16_t addr)
 {
     if (cond == (uint8_t)1)
         state->pc = addr;
@@ -622,72 +539,70 @@ void jump(State* state, uint8_t cond, uint16_t addr)
         state->pc += 2;
 }
 
-// Push register pair onto the stack
-void push(State *state, uint8_t hi, uint8_t lo)
+// Push value onto the stack
+static void push(State *state, uint8_t hi, uint8_t lo)
 {
     state->sp--;
     state->mem[state->sp] = hi;
     state->sp--;
     state->mem[state->sp] = lo;
-    //printf("\n\nPushed on: %02x%02x\n\n", state->mem[state->sp + 1], state->mem[state->sp]);
 }
 
-void pop(State *state, uint8_t *hi, uint8_t *lo)
+// Pop from stack
+static void pop(State *state, uint8_t *hi, uint8_t *lo)
 {
     *lo = state->mem[state->sp];
     state->sp++;
     *hi = state->mem[state->sp];
     state->sp++;
-    //printf("\n\nPopped off: %02x%02x\n\n", *hi, *lo);
-    //printf("Stack view of popped: %02x%02x\n\n", state->mem[state->sp - 1], state->mem[state->sp - 2]);
-    //printf("2nd on stack: %02x%02x\n\n", state->mem[state->sp - 3], state->mem[state->sp - 4]);
-    //printf("Above stack: %02x%02x\n\n", state->mem[state->sp + 1], state->mem[state->sp]);
 }
 
-void call(State *state, uint8_t cond, uint16_t addr)
+// Push return and jump
+static void call(State *state, uint8_t cond, uint16_t addr)
 {
     // push return address
     state->pc += 2;
     uint8_t hi = (state->pc >> 8) & 0xFF;
     uint8_t lo = state->pc & 0xFF;
     push(state, hi, lo);
-
-    // White Men Can't Jump (except in this case)
     jump(state, cond, addr);
 }
 
-void ret(State* state)
+// Return to address on stack
+static void ret(State* state)
 {
     uint8_t hi, lo;
     pop(state, &hi, &lo);
     state->pc = (uint16_t)(hi << 8) | (uint16_t)lo;
 }
 
-void stackPeek(State *state)
+// Print the top of the stack (for debugging)
+static void stackPeek(State *state)
 {
-    printf("Above %02x%02x\n\n", state->mem[state->sp + 3], state->mem[state->sp + 2]);
-    printf("Top of stack: %02x%02x\n\n", state->mem[state->sp + 1], state->mem[state->sp]);
-    printf("Below: %02x%02x\n\n", state->mem[state->sp - 1], state->mem[state->sp - 1]);
+    printf("\tAbove: %02x%02x\n", state->mem[state->sp + 3], state->mem[state->sp + 2]);
+    printf("\tTop of stack: %02x%02x\n", state->mem[state->sp + 1], state->mem[state->sp]);
+    printf("\tBelow: %02x%02x\n", state->mem[state->sp - 1], state->mem[state->sp - 1]);
 }
 
 // Use the buf full of data and update the current state based on the instruction
-int emulate8080(State *state)
+int emulate8080(State *state, int print)
 {
     unsigned char *code = &(state->mem[state->pc]);
-    // printf("0x%04x", state->pc);
-    disassemble8080(state->mem, state->pc);
+    if (print)
+    {
+        disassemble8080(state->mem, state->pc);
+        printf("\t");
+        printf("%c", state->codes->z ? 'z' : '.');
+        printf("%c", state->codes->s ? 's' : '.');
+        printf("%c", state->codes->p ? 'p' : '.');
+        printf("%c", state->codes->c ? 'c' : '.');
+        printf("%c  ", state->codes->ac ? 'a' : '.');
+        printf("A $%02x B $%02x C $%02x D $%02x E $%02x H $%02x L $%02x SP %04x\n", state->a, state->b, state->c,
+                    state->d, state->e, state->h, state->l, state->sp);
+        stackPeek(state);
+    }
+
     state->pc++;
-    
-    printf("\t");
-	printf("%c", state->codes->z ? 'z' : '.');
-	printf("%c", state->codes->s ? 's' : '.');
-	printf("%c", state->codes->p ? 'p' : '.');
-	printf("%c", state->codes->c ? 'c' : '.');
-	printf("%c  ", state->codes->ac ? 'a' : '.');
-	printf("A $%02x B $%02x C $%02x D $%02x E $%02x H $%02x L $%02x SP %04x\n", state->a, state->b, state->c,
-				state->d, state->e, state->h, state->l, state->sp);
-    
-    stackPeek(state);
 
     switch (code[0])
     {
@@ -696,8 +611,6 @@ int emulate8080(State *state)
         // NOP
         case 0x00: break;
 
-        // go to next instruction and wait until interrupt is received
-        // Since there is no ISR, just exit (will change later)
         // HLT
         case 0x76: exit(EXIT_SUCCESS); break;
 
@@ -809,12 +722,6 @@ int emulate8080(State *state)
         // CMA
         case 0x2F: state->a = ~(state->a); break;
 
-
-        /*
-        No masks are used on the bit shifts
-        because all types are unsigned (no extension)
-        */
-
         // RAR
         case 0x1F:
         {
@@ -896,10 +803,10 @@ int emulate8080(State *state)
         }
         case 0x1A:
         {
-            printf("val before: %x\n",state->mem[state->sp]);
+            // printf("val before: %x\n",state->mem[state->sp]);
             uint16_t addr = ((uint16_t)state->d << 8) | (uint16_t)state->e;
             state->a = state->mem[addr];
-            printf("val after: %x\n",state->mem[state->sp]);
+            // printf("val after: %x\n",state->mem[state->sp]);
             break;
         }
 
@@ -921,13 +828,10 @@ int emulate8080(State *state)
         case 0xC1: pop(state, &(state->b), &(state->c)); break;
         case 0xD1: pop(state, &(state->d), &(state->e)); break;
         case 0xE1: pop(state, &(state->h), &(state->l)); break;
-        // This one affects all flags
         case 0xF1:
         {
-            state->a = state->mem[state->sp];
-            state->sp++;
-            uint8_t psw = state->mem[state->sp];
-            state->sp++;
+            uint8_t psw;
+            pop(state, &(psw), &(state->a));
             
             // restore condition codes
             state->codes->c = (psw & 0x1);
@@ -935,6 +839,7 @@ int emulate8080(State *state)
             state->codes->ac = (psw >> 4) & 0x1;
             state->codes->z = (psw >> 6) & 0x1;
             state->codes->s = (psw >> 7) & 0x1;
+            break;
         }
 
         // PUSH
@@ -1263,9 +1168,9 @@ int emulate8080(State *state)
 
         /* 2 byte codes */
 
-        // for now just skip over data
-        case 0xD3: state->pc++; break; // printf("OUT    #$%02x", code[1]); break;
-        case 0xDB: state->pc++; break; // printf("IN    #$%02x", code[1]); break;
+        // IN/OUT (Being handled outside the processor, will never hit here)
+        case 0xD3: state->pc++; break;
+        case 0xDB: state->pc++; break;
         
         // CPI
         case 0xFE:
@@ -1327,7 +1232,7 @@ int emulate8080(State *state)
         case 0xC6:
         {
             state->pc++;
-            sub(state, (uint16_t)code[1], false);
+            add(state, (uint16_t)code[1], false);
             break;
         }
 
@@ -1599,44 +1504,4 @@ State *init8080()
     state->codes->s = 0;
     state->codes->z = 0;
     return state;
-}
-
-// Reads in a memory file
-int main(int argc, char **argv)
-{   
-    FILE *f = fopen(argv[1], "rb");
-    
-    if (f == NULL)
-    {
-        printf("File could not be opened\n");
-        exit(EXIT_FAILURE);
-    }
-
-    int fd = fileno(f);
-
-    struct stat st;
-
-    /* get the size of the file */
-    if (fstat(fd, &st) != 0)
-        exit(EXIT_FAILURE);
-    int size = st.st_size;
-
-    /* write into the buffer */
-
-    State *state = init8080();
-
-    fread(state->mem, size, 1, f);
-    fclose(f);
-
-    // Main routine
-
-    int done = 0;
-    while (done)
-    {
-        emulate8080(state);
-        // done++;
-    }
-    free(state->codes);
-    free(state);
-    return 0;
 }
