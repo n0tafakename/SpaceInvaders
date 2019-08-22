@@ -1,4 +1,2 @@
 # SpaceInvaders
-Full emulation of Intel 8080 and playable Space Invaders
-
-Currently only the processor is complete and has not been thoroughly tested
+Emulation of an i8080 processor and it's application in a Space Invaders emulator, built in C with SDL2. Does not yet emulate sound or support 2 player.
