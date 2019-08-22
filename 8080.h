@@ -30,5 +30,6 @@ typedef struct
     Codes *codes;
 } State;
 
-int emulate8080(State *state, int print);
+void GenerateInterrupt(State *state, int num);
+int emulate8080(State *state);
 State *init8080();

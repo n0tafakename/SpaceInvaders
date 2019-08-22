@@ -4,35 +4,56 @@
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <SDL2/SDL.h>
 #include "8080.h"
 
-/*
-// Holds values of flags
-typedef struct
-{
-    uint8_t z;  // zero
-    uint8_t c;  // carry
-    uint8_t p;  // parity
-    uint8_t s;  // sign
-    uint8_t ac; // auxiliary carry
-} Codes;
+// number of cycles per instruction, indexed by opcode
+static const int cycles[] = {
+    4, 10, 7, 5, 5, 5, 7, 4, 4, 10, 7, 5, 5, 5, 7, 4,
+	4, 10, 7, 5, 5, 5, 7, 4, 4, 10, 7, 5, 5, 5, 7, 4,
+	4, 10, 16, 5, 5, 5, 7, 4, 4, 10, 16, 5, 5, 5, 7, 4,
+	4, 10, 13, 5, 10, 10, 10, 4, 4, 10, 13, 5, 5, 5, 7, 4,
+	
+	5, 5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 5, 7, 5,
+	5, 5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 5, 7, 5,
+	5, 5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 5, 7, 5,
+	7, 7, 7, 7, 7, 7, 7, 7, 5, 5, 5, 5, 5, 5, 7, 5,
+	
+	4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
+	4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
+	4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
+	4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
+	
+    // lengths for conditional jump/call assumes branch taken
+	11, 10, 10, 10, 17, 11, 7, 11, 11, 10, 10, 10, 17, 17, 7, 11,
+	11, 10, 10, 10, 17, 11, 7, 11, 11, 10, 10, 10, 17, 17, 7, 11, 
+	11, 10, 10, 18, 17, 11, 7, 11, 11, 5, 10, 5, 17, 17, 7, 11, 
+	11, 10, 10, 4, 17, 11, 7, 11, 11, 5, 10, 4, 17, 17, 7, 11,
+};
 
-typedef struct
-{
-    uint16_t pc;
-    uint16_t sp;
-    uint8_t a;
-    uint8_t b;
-    uint8_t c;
-    uint8_t d;
-    uint8_t e;
-    uint8_t h;
-    uint8_t l;
-    bool int_en; // interrupt enable
-    uint8_t *mem;
-    Codes *codes;
-} State;
-*/
+// number of cycles per instruction, indexed by opcode
+static const int notTakenCycles[] = {
+    4, 10, 7, 5, 5, 5, 7, 4, 4, 10, 7, 5, 5, 5, 7, 4,
+	4, 10, 7, 5, 5, 5, 7, 4, 4, 10, 7, 5, 5, 5, 7, 4,
+	4, 10, 16, 5, 5, 5, 7, 4, 4, 10, 16, 5, 5, 5, 7, 4,
+	4, 10, 13, 5, 10, 10, 10, 4, 4, 10, 13, 5, 5, 5, 7, 4,
+	
+	5, 5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 5, 7, 5,
+	5, 5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 5, 7, 5,
+	5, 5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 5, 7, 5,
+	7, 7, 7, 7, 7, 7, 7, 7, 5, 5, 5, 5, 5, 5, 7, 5,
+	
+	4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
+	4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
+	4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
+	4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
+	
+    // lengths for conditional jump/call assumes branch not taken
+	5, 10, 10, 10, 11, 11, 7, 11, 5, 10, 10, 10, 11, 17, 7, 11,
+	5, 10, 10, 10, 11, 11, 7, 11, 5, 10, 10, 10, 11, 17, 7, 11, 
+	5, 10, 10, 18, 11, 11, 7, 11, 5, 5, 10, 5, 11, 17, 7, 11, 
+	5, 10, 10, 4, 11, 11, 7, 11, 5, 5, 10, 4, 11, 17, 7, 11,
+};
 
 // print machine code for buf[pc] (Useful for debugging)
 static int disassemble8080(unsigned char *buf, unsigned int pc)
@@ -345,14 +366,6 @@ static int disassemble8080(unsigned char *buf, unsigned int pc)
     return length;
 }
 
-// Error message for unimplemented instructions
-static int UnimplementedInstruction(unsigned int instruction)
-{
-    printf("Well... shit...\n");
-    printf("%02x is not implemented", instruction);
-    exit(EXIT_FAILURE);
-}
-
 // Returns 1 if the number bits set is even
 static int parity(uint8_t num)
 {
@@ -392,12 +405,10 @@ static void add(State *state, uint16_t num, bool carry)
     if (carry) tmp++;
 
     // Set AC flag
-    if (((state->a & 0xF) + (num & 0xF)) > 0xF)
-        state->codes->ac = 0x1;
-
+    state->codes->ac = ((state->a) ^ tmp ^ num) & 0x10;
     state->a = (uint8_t)tmp;
 
-    // Set others
+    // Set other flags
     setArithFlags(state, tmp);
 }
 
@@ -405,14 +416,14 @@ static void add(State *state, uint16_t num, bool carry)
 static void sub(State *state, uint16_t num, bool borrow)
 {
     uint16_t tmp = (uint16_t)state->a - num;
-    if (borrow) tmp++;
-    state->a = (uint8_t)tmp;
+    if (borrow) tmp--;
 
     // Set AC flag
-    if (((state->a & 0xF0) - (num & 0xF0)) != ((state->a - num) & 0xF0))
-        state->codes->ac = 0x1;
+    state->codes->ac = ~((state->a) ^ tmp ^ num) & 0x10;
 
-    // Set flags
+    state->a = (uint8_t)tmp;
+
+    // Set other flags
     setArithFlags(state, tmp);
 }
 
@@ -420,6 +431,7 @@ static void sub(State *state, uint16_t num, bool borrow)
 static void and(State *state, uint16_t num)
 {
     uint16_t tmp = (uint16_t)state->a & num;
+    state->codes->ac = ((state->a | num) & 0x08) != 0;
     state->a = (uint8_t)tmp;
 
     // Set flags
@@ -434,6 +446,7 @@ static void or(State *state, uint16_t num)
 
     // Set flags
     setArithFlags(state, tmp);
+    state->codes->ac = 0;
 }
 
 // Xor num with register A
@@ -444,6 +457,7 @@ static void xor(State *state, uint16_t num)
 
     // Set flags
     setArithFlags(state, tmp);
+    state->codes->ac = 0;
 }
 
 // Set flags according to the result of a - num
@@ -452,28 +466,18 @@ static void cmp(State *state, uint16_t num)
     uint16_t tmp = (uint16_t)state->a - num;
 
     // Set AC flag
-    if (((state->a & 0xF0) - (num & 0xF0)) != ((state->a - num) & 0xF0))
-        state->codes->ac = 0x1;
+    state->codes->ac = ~((state->a) ^ tmp ^ num) & 0x10;
 
     // Set others
     setArithFlags(state, tmp);
-
-    // Flip carry flag if sign does not match
-    if ((state->a >> 7) != (((uint8_t)num) >> 7))
-        state->codes->c = !(state->codes->c);
-
 }
 
 // Increment register value
 static void inr(State *state, uint8_t *value)
 {
     uint16_t tmp = 1 + (uint16_t)(*value);
-
-    // Set AC flag
-    if (((*value & 0xF) + 1) < 0xF)
-        state->codes->ac = 0x1;
-
     *value = (uint8_t)tmp;
+    state->codes->ac = (*value & 0xF) == 0;
     
     // Set flags
     setAllButCarry(state, tmp);
@@ -483,11 +487,8 @@ static void inr(State *state, uint8_t *value)
 static void dcr(State *state, uint8_t *value)
 {
     uint16_t tmp = (uint16_t)(*value) - 1;
-
-    if ((*value & 0xF) == 0)
-        state->codes->ac = 0x1;
-
     *value = (uint8_t)tmp;
+    state->codes->ac = !((*value & 0xF) == 0xF);
     
     // Set flags
     setAllButCarry(state, tmp);
@@ -557,15 +558,21 @@ static void pop(State *state, uint8_t *hi, uint8_t *lo)
     state->sp++;
 }
 
-// Push return and jump
-static void call(State *state, uint8_t cond, uint16_t addr)
+// Push return and jump (returns true if branch is taken)
+static bool call(State *state, uint8_t cond, uint16_t addr)
 {
     // push return address
     state->pc += 2;
-    uint8_t hi = (state->pc >> 8) & 0xFF;
-    uint8_t lo = state->pc & 0xFF;
-    push(state, hi, lo);
-    jump(state, cond, addr);
+    if (cond)
+    {
+        uint8_t hi = (state->pc >> 8) & 0xFF;
+        uint8_t lo = state->pc & 0xFF;
+        push(state, hi, lo);
+        jump(state, cond, addr);
+        return true;
+    }   
+    
+    return false;
 }
 
 // Return to address on stack
@@ -584,25 +591,19 @@ static void stackPeek(State *state)
     printf("\tBelow: %02x%02x\n", state->mem[state->sp - 1], state->mem[state->sp - 1]);
 }
 
-// Use the buf full of data and update the current state based on the instruction
-int emulate8080(State *state, int print)
+void GenerateInterrupt(State *state, int num)
+{
+    state->pc -= 2; // call function increments pc
+    call(state, 0x1, num * 8);
+    state->int_en = false;
+}
+
+// Update the current state based on the instruction read from the buffer
+int emulate8080(State *state)
 {
     unsigned char *code = &(state->mem[state->pc]);
-    if (print)
-    {
-        disassemble8080(state->mem, state->pc);
-        printf("\t");
-        printf("%c", state->codes->z ? 'z' : '.');
-        printf("%c", state->codes->s ? 's' : '.');
-        printf("%c", state->codes->p ? 'p' : '.');
-        printf("%c", state->codes->c ? 'c' : '.');
-        printf("%c  ", state->codes->ac ? 'a' : '.');
-        printf("A $%02x B $%02x C $%02x D $%02x E $%02x H $%02x L $%02x SP %04x\n", state->a, state->b, state->c,
-                    state->d, state->e, state->h, state->l, state->sp);
-        stackPeek(state);
-    }
-
     state->pc++;
+    bool notTaken = false;
 
     switch (code[0])
     {
@@ -665,48 +666,65 @@ int emulate8080(State *state, int print)
         {
             if (!(state->codes->z))
                 ret(state);
+            else
+                notTaken = true;
+            
             break;
         }
         case 0xC8:
         {
             if ((state->codes->z))
                 ret(state);
+            else
+                notTaken = true;
             break;
         }
         case 0xD0:
         {
             if (!(state->codes->c))
                 ret(state);
+            else
+                notTaken = true;
             break;
         }
         case 0xD8:
         {
             if ((state->codes->c))
                 ret(state);
+            else
+                notTaken = true;
             break;
         }
         case 0xE0:
         {
             if (!(state->codes->p))
                 ret(state);
+            else
+                notTaken = true;
             break;
         }
         case 0xE8:
         {
             if ((state->codes->p))
                 ret(state);
+            else
+                notTaken = true;
             break;
         }
         case 0xF0:
         {
             if (!(state->codes->s))
                 ret(state);
+            else
+                notTaken = true;
             break;
         }
         case 0xF8:
         {
             if ((state->codes->s))
                 ret(state);
+            else
+                notTaken = true;
             break;
         }
 
@@ -763,20 +781,20 @@ int emulate8080(State *state, int print)
         // DAA
         case 0x27:
         {
-            if ((((state->a) & 0xF) > 0x9) || state->codes->ac)
-                state->a += 0x6;
+            uint8_t tmpCarry = state->codes->c;
+            uint8_t lo = state->a & 0x0F;
+            uint8_t hi = state->a & 0xF0;
+            uint8_t toAdd = 0;
+            if ((lo > 0x9) || state->codes->ac)
+                toAdd += 0x6;
             
-            if ((((state->a) & 0xF0) > 0x90) || state->codes->c)
-                state->a += 0x60;
-            
-            // Set Flags
-            if (((state->a) & 0xF) < 0x6)
-                state->codes->ac = 0x1;
-            
-            if (((state->a) & 0xF0) < 0x60)
-                state->codes->c = 0x1;
-            
-            setAllButCarry(state, (uint16_t)state->a);
+            if ((hi > 0x90) || state->codes->c || ((hi == 0x90) && (lo > 0x9))) {
+                toAdd += 0x60;
+                tmpCarry = 1;
+            }
+
+            add(state, toAdd, false);
+            state->codes->c = tmpCarry;
             break;
         }
 
@@ -803,10 +821,8 @@ int emulate8080(State *state, int print)
         }
         case 0x1A:
         {
-            // printf("val before: %x\n",state->mem[state->sp]);
             uint16_t addr = ((uint16_t)state->d << 8) | (uint16_t)state->e;
             state->a = state->mem[addr];
-            // printf("val after: %x\n",state->mem[state->sp]);
             break;
         }
 
@@ -831,7 +847,7 @@ int emulate8080(State *state, int print)
         case 0xF1:
         {
             uint8_t psw;
-            pop(state, &(psw), &(state->a));
+            pop(state, &(state->a), &(psw));
             
             // restore condition codes
             state->codes->c = (psw & 0x1);
@@ -1032,19 +1048,19 @@ int emulate8080(State *state, int print)
             break;
         }
 		case 0x97: sub(state, (uint16_t)state->a, false); break;
-		case 0x98: sub(state, (uint16_t)state->b, true); break;
-		case 0x99: sub(state, (uint16_t)state->c, true); break;
-		case 0x9a: sub(state, (uint16_t)state->d, true); break;
-		case 0x9b: sub(state, (uint16_t)state->e, true); break;
-		case 0x9c: sub(state, (uint16_t)state->h, true); break;
-		case 0x9d: sub(state, (uint16_t)state->l, true); break;
+		case 0x98: sub(state, (uint16_t)state->b, state->codes->c); break;
+		case 0x99: sub(state, (uint16_t)state->c, state->codes->c); break;
+		case 0x9a: sub(state, (uint16_t)state->d, state->codes->c); break;
+		case 0x9b: sub(state, (uint16_t)state->e, state->codes->c); break;
+		case 0x9c: sub(state, (uint16_t)state->h, state->codes->c); break;
+		case 0x9d: sub(state, (uint16_t)state->l, state->codes->c); break;
 		case 0x9e:
         {
             uint16_t addr = ((uint16_t)state->h << 8) | (uint16_t)state->l;
-            sub(state, (uint16_t)state->mem[addr], true);
+            sub(state, (uint16_t)state->mem[addr], state->codes->c);
             break;
         }
-		case 0x9f: sub(state, (uint16_t)state->a, true); break;
+		case 0x9f: sub(state, (uint16_t)state->a, state->codes->c); break;
 
         // ANA
 		case 0xa0: and(state, (uint16_t)state->b); break;
@@ -1208,7 +1224,7 @@ int emulate8080(State *state, int print)
         case 0xDE:
         {
             state->pc++;
-            sub(state, (uint16_t)code[1], true);
+            sub(state, (uint16_t)code[1], state->codes->c);
             break;
         }
 
@@ -1432,54 +1448,58 @@ int emulate8080(State *state, int print)
         case 0xC4:
         {
             uint16_t addr = ((uint16_t)(code[2]) << 8) | (uint16_t)code[1];
-            call(state, !(state->codes->z), addr);
+            notTaken = !call(state, !(state->codes->z), addr);
             break;
         }
         case 0xCC:
         {
             uint16_t addr = ((uint16_t)(code[2]) << 8) | (uint16_t)code[1];
-            call(state, (state->codes->z), addr);
+            notTaken = !call(state, (state->codes->z), addr);
             break;
         }
         case 0xD4:
         {
             uint16_t addr = ((uint16_t)(code[2]) << 8) | (uint16_t)code[1];
-            call(state, !(state->codes->c), addr);
+            notTaken = !call(state, !(state->codes->c), addr);
             break;
         }
         case 0xDC:
         {
             uint16_t addr = ((uint16_t)(code[2]) << 8) | (uint16_t)code[1];
-            call(state, (state->codes->c), addr);
+            notTaken = !call(state, (state->codes->c), addr);
             break;
         }
         case 0xE4:
         {
             uint16_t addr = ((uint16_t)(code[2]) << 8) | (uint16_t)code[1];
-            call(state, !(state->codes->p), addr);
+            notTaken = !call(state, !(state->codes->p), addr);
             break;
         }
         case 0xEC:
         {
             uint16_t addr = ((uint16_t)(code[2]) << 8) | (uint16_t)code[1];
-            call(state, (state->codes->p), addr);
+            notTaken = !call(state, (state->codes->p), addr);
             break;
         }
         case 0xF4:
         {
             uint16_t addr = ((uint16_t)(code[2]) << 8) | (uint16_t)code[1];
-            call(state, !(state->codes->s), addr);
+            notTaken = !call(state, !(state->codes->s), addr);
             break;
         }
         case 0xFC:
         {
             uint16_t addr = ((uint16_t)(code[2]) << 8) | (uint16_t)code[1];
-            call(state, (state->codes->s), addr);
+            notTaken = !call(state, (state->codes->s), addr);
             break;
         }
     }
 
-    return 0;
+    if (notTaken)
+    {
+        return notTakenCycles[code[0]];
+    }
+    return cycles[code[0]];
 }
 
 State *init8080()
