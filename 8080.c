@@ -84,7 +84,6 @@ static int disassemble8080(unsigned char *buf, unsigned int pc)
         case 0xF7: printf("RST    6"); break;
         case 0xFF: printf("RST    7"); break;
 
-        // Rccc
         case 0xC0: printf("RNZ"); break;
         case 0xC8: printf("RZ"); break;
         case 0xD0: printf("RNC"); break;
@@ -123,7 +122,6 @@ static int disassemble8080(unsigned char *buf, unsigned int pc)
         case 0xE5: printf("PUSH    HL"); break;
         case 0xF5: printf("PUSH    PSW"); break;
 
-        // MOV
         case 0x40: printf("MOV    B,B"); break;
 		case 0x41: printf("MOV    B,C"); break;
 		case 0x42: printf("MOV    B,D"); break;
@@ -188,7 +186,6 @@ static int disassemble8080(unsigned char *buf, unsigned int pc)
 		case 0x7e: printf("MOV    A,M"); break;
 		case 0x7f: printf("MOV    A,A"); break;
 
-        // ADD/ADC
         case 0x80: printf("ADD    B"); break;
 		case 0x81: printf("ADD    C"); break;
 		case 0x82: printf("ADD    D"); break;
@@ -206,7 +203,6 @@ static int disassemble8080(unsigned char *buf, unsigned int pc)
 		case 0x8e: printf("ADC    M"); break;
 		case 0x8f: printf("ADC    A"); break;
 
-        // SUB/SBB
         case 0x90: printf("SUB    B"); break;
 		case 0x91: printf("SUB    C"); break;
 		case 0x92: printf("SUB    D"); break;
@@ -224,7 +220,6 @@ static int disassemble8080(unsigned char *buf, unsigned int pc)
 		case 0x9e: printf("SBB    M"); break;
 		case 0x9f: printf("SBB    A"); break;
 
-        // ANA
 		case 0xa0: printf("ANA    B"); break;
 		case 0xa1: printf("ANA    C"); break;
 		case 0xa2: printf("ANA    D"); break;
@@ -234,7 +229,6 @@ static int disassemble8080(unsigned char *buf, unsigned int pc)
 		case 0xa6: printf("ANA    M"); break;
 		case 0xa7: printf("ANA    A"); break;
 		
-        // XRA
         case 0xa8: printf("XRA    B"); break;
 		case 0xa9: printf("XRA    C"); break;
 		case 0xaa: printf("XRA    D"); break;
@@ -244,7 +238,6 @@ static int disassemble8080(unsigned char *buf, unsigned int pc)
 		case 0xae: printf("XRA    M"); break;
 		case 0xaf: printf("XRA    A"); break;
 
-        // ORA
 		case 0xb0: printf("ORA    B"); break;
 		case 0xb1: printf("ORA    C"); break;
 		case 0xb2: printf("ORA    D"); break;
@@ -254,7 +247,6 @@ static int disassemble8080(unsigned char *buf, unsigned int pc)
 		case 0xb6: printf("ORA    M"); break;
 		case 0xb7: printf("ORA    A"); break;
 		
-        // CMP
         case 0xb8: printf("CMP    B"); break;
 		case 0xb9: printf("CMP    C"); break;
 		case 0xba: printf("CMP    D"); break;
@@ -264,25 +256,21 @@ static int disassemble8080(unsigned char *buf, unsigned int pc)
 		case 0xbe: printf("CMP    M"); break;
 		case 0xbf: printf("CMP    A"); break;
 
-        // INX
         case 0x03: printf("INX    BC"); break;
         case 0x13: printf("INX    DE"); break;
         case 0x23: printf("INX    HL"); break;
         case 0x33: printf("INX    SP"); break;
 
-        // DCX
         case 0x0B: printf("DCX    BC"); break;
         case 0x1B: printf("DCX    DE"); break;
         case 0x2B: printf("DCX    HL"); break;
         case 0x3B: printf("DCX    SP"); break;
 
-        // DAD
         case 0x09: printf("DAD    BC"); break;
         case 0x19: printf("DAD    DE"); break;
         case 0x29: printf("DAD    HL"); break;
         case 0x39: printf("DAD    SP"); break;
         
-        // INR
         case 0x04: printf("INR    B"); break;
         case 0x0C: printf("INR    C"); break;
         case 0x14: printf("INR    D"); break;
@@ -292,7 +280,6 @@ static int disassemble8080(unsigned char *buf, unsigned int pc)
         case 0x34: printf("INR    M"); break;
         case 0x3C: printf("INR    A"); break;
 
-        // DCR
         case 0x05: printf("DCR    B"); break;
         case 0x0D: printf("DCR    C"); break;
         case 0x15: printf("DCR    D"); break;
@@ -315,7 +302,6 @@ static int disassemble8080(unsigned char *buf, unsigned int pc)
         case 0xCE: printf("ACI    #$%02x", code[1]); length = 2; break;
         case 0xC6: printf("ADI    #$%02x", code[1]); length = 2; break;
 
-        // MVI
         case 0x06: printf("MVI    B,#$%02x", code[1]); length = 2; break;
         case 0x0E: printf("MVI    C,#$%02x", code[1]); length = 2; break;
         case 0x16: printf("MVI    D,#$%02x", code[1]); length = 2; break;
@@ -334,13 +320,11 @@ static int disassemble8080(unsigned char *buf, unsigned int pc)
         case 0xC3: printf("JMP    $%02x%02x", code[2], code[1]); length = 3; break;
         case 0xCD: printf("CALL    $%02x%02x", code[2], code[1]); length = 3; break;
 
-        // LXI
         case 0x01: printf("LXI    BC,#$%02x%02x", code[2], code[1]); length = 3; break;
         case 0x11: printf("LXI    DE,#$%02x%02x", code[2], code[1]); length = 3; break;
         case 0x21: printf("LXI    HL,#$%02x%02x", code[2], code[1]); length = 3; break;
         case 0x31: printf("LXI    SP,#$%02x%02x", code[2], code[1]); length = 3; break;
 
-        // Jccc
         case 0xC2: printf("JNZ    $%02x%02x", code[2], code[1]); length = 3; break;
         case 0xCA: printf("JZ    $%02x%02x", code[2], code[1]); length = 3; break;
         case 0xD2: printf("JNC    $%02x%02x", code[2], code[1]); length = 3; break;
@@ -350,7 +334,6 @@ static int disassemble8080(unsigned char *buf, unsigned int pc)
         case 0xF2: printf("JP    $%02x%02x", code[2], code[1]); length = 3; break;
         case 0xFA: printf("JM    $%02x%02x", code[2], code[1]); length = 3; break;
 
-        // Cccc
         case 0xC4: printf("CNZ    $%02x%02x", code[2], code[1]); length = 3; break;
         case 0xCC: printf("CZ    $%02x%02x", code[2], code[1]); length = 3; break;
         case 0xD4: printf("CNC    $%02x%02x", code[2], code[1]); length = 3; break;
@@ -375,7 +358,6 @@ static int parity(uint8_t num)
     return ((tmp2 ^ (tmp2 >> 4)) & 1) ? 0 : 1;
 }
 
-// Set flags based on the result of the operation
 static void setArithFlags(State *state, uint16_t result)
 {
     state->codes->c = ((result & 0x100) == 0x100);
@@ -384,7 +366,6 @@ static void setArithFlags(State *state, uint16_t result)
     state->codes->p = parity((uint8_t)(result & 0xFF));
 }
 
-// Sets every flag except for the carry flag
 static void setAllButCarry(State *state, uint16_t result)
 {
     state->codes->z = ((result & 0xFF) == 0);
@@ -392,109 +373,88 @@ static void setAllButCarry(State *state, uint16_t result)
     state->codes->p = parity((uint8_t)(result & 0xFF));
 }
 
-// Set the carry flag based on result
 static void setCarry(State *state, uint16_t result)
 {
     state->codes->c = ((result & 0x100) == 0x100);
 }
 
-// Adds num to register A
 static void add(State *state, uint16_t num, bool carry)
 {
     uint16_t tmp = (uint16_t)(state->a) + num;
     if (carry) tmp++;
 
-    // Set AC flag
     state->codes->ac = ((state->a) ^ tmp ^ num) & 0x10;
     state->a = (uint8_t)tmp;
 
-    // Set other flags
     setArithFlags(state, tmp);
 }
 
-// Subtracts num from register A
 static void sub(State *state, uint16_t num, bool borrow)
 {
     uint16_t tmp = (uint16_t)state->a - num;
     if (borrow) tmp--;
 
-    // Set AC flag
     state->codes->ac = ~((state->a) ^ tmp ^ num) & 0x10;
 
     state->a = (uint8_t)tmp;
 
-    // Set other flags
     setArithFlags(state, tmp);
 }
 
-// And num with register A
 static void and(State *state, uint16_t num)
 {
     uint16_t tmp = (uint16_t)state->a & num;
     state->codes->ac = ((state->a | num) & 0x08) != 0;
     state->a = (uint8_t)tmp;
 
-    // Set flags
     setArithFlags(state, tmp);
 }
 
-// Or num with register A
 static void or(State *state, uint16_t num)
 {
     uint16_t tmp = (uint16_t)state->a | num;
     state->a = (uint8_t)tmp;
 
-    // Set flags
     setArithFlags(state, tmp);
     state->codes->ac = 0;
 }
 
-// Xor num with register A
 static void xor(State *state, uint16_t num)
 {
     uint16_t tmp = (uint16_t)state->a ^ num;
     state->a = (uint8_t)tmp;
 
-    // Set flags
     setArithFlags(state, tmp);
     state->codes->ac = 0;
 }
 
-// Set flags according to the result of a - num
 static void cmp(State *state, uint16_t num)
 {
     uint16_t tmp = (uint16_t)state->a - num;
 
-    // Set AC flag
     state->codes->ac = ~((state->a) ^ tmp ^ num) & 0x10;
 
-    // Set others
     setArithFlags(state, tmp);
 }
 
-// Increment register value
 static void inr(State *state, uint8_t *value)
 {
     uint16_t tmp = 1 + (uint16_t)(*value);
     *value = (uint8_t)tmp;
     state->codes->ac = (*value & 0xF) == 0;
     
-    // Set flags
     setAllButCarry(state, tmp);
 }
 
-// Decrement register value
 static void dcr(State *state, uint8_t *value)
 {
     uint16_t tmp = (uint16_t)(*value) - 1;
     *value = (uint8_t)tmp;
     state->codes->ac = !((*value & 0xF) == 0xF);
     
-    // Set flags
     setAllButCarry(state, tmp);
 }
 
-// Set the destination (reg or mem) to the value of source (reg or mem)
 static void mov(uint8_t *dest, uint8_t *src)
 {
     *dest = *src;
