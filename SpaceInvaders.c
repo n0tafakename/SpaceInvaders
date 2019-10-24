@@ -23,7 +23,6 @@ static void out(SpaceInvaders *si, uint8_t port)
     return;
 }
 
-// TODO: case 2 for two player
 static void in(SpaceInvaders *si, uint8_t port)
 {
     uint8_t val = 0;
@@ -49,7 +48,6 @@ static void in(SpaceInvaders *si, uint8_t port)
         }
     }
 
-    // write into the accumulator
     si->state8080->a = val;
     return;
 }
@@ -82,7 +80,6 @@ static int emulateINOUT(SpaceInvaders *si)
     return success;
 }
 
-// Screen buffer does not get initialized to anything (maybe change that, init to 0's)
 SpaceInvaders *initSpaceInvaders()
 {
     SpaceInvaders *new = malloc(sizeof(SpaceInvaders));
@@ -153,9 +150,6 @@ void updateBuffer(SpaceInvaders *si)
             si->screenBuffer[byte_y][byte_x][1] = g;
             si->screenBuffer[byte_y][byte_x][2] = b;
             si->screenBuffer[byte_y][byte_x][3] = (uint8_t)0;
-            //if (r != 0)
-            //    printf("red = %d, alpha = %d\n", si->screenBuffer[y][x][0],si->screenBuffer[y][x][3]);
-
         }
     }
 }
