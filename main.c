@@ -8,14 +8,12 @@
 #include "SpaceInvaders.h"
 
 
-// handles SDL keyboard events
 void handleEvents(SpaceInvaders *si, SDL_Event *event, bool *done)
 {
     while (SDL_PollEvent(event) != 0)
     {
-        // do stuff
         switch (event->type)
-        {   // shit hit the fan (or exit clicked)
+        {
             case SDL_QUIT: *done = true; break;
 
             // Key has been pressed
@@ -44,14 +42,12 @@ void handleEvents(SpaceInvaders *si, SDL_Event *event, bool *done)
                         break;
                     }
 
-                    // left
                     case SDLK_LEFT:
                     {
                         si->port1 |= 0b00100000;
                         break;
                     }
                     
-                    // right
                     case SDLK_RIGHT:
                     {
                         si->port1 |= 0b01000000;
@@ -127,7 +123,6 @@ void updateScreen(SpaceInvaders *si,  SDL_Texture *texture)
     SDL_UpdateTexture(texture, NULL, (si->screenBuffer), pitch);
 }
 
-// TODO: Put file and SDL stuff in subroutines
 int main(int argc, char **argv)
 {   
     FILE *f = fopen(argv[1], "rb");
@@ -140,31 +135,29 @@ int main(int argc, char **argv)
     int fd = fileno(f);
     struct stat st;
 
-    /* get the size of the file */
     if (fstat(fd, &st) != 0)
         exit(EXIT_FAILURE);
     int size = st.st_size;
 
-    /* write into the buffer */
     SpaceInvaders *spaceInvaders = initSpaceInvaders();
     fread(spaceInvaders->state8080->mem, size, 1, f);
     fclose(f);
 
-    /* SDL initialization stuff */
+    /* SDL initialization  */
 
     if (SDL_Init(SDL_INIT_VIDEO))
     {
-        printf("Shit hit the fan\n");
+        printf("Initialization failure\n");
         exit(EXIT_FAILURE);
     }
 
-    SDL_Window *window = SDL_CreateWindow("Nace Invaders", SDL_WINDOWPOS_CENTERED,
+    SDL_Window *window = SDL_CreateWindow("Space Invaders", SDL_WINDOWPOS_CENTERED,
                                           SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH * 2,
                                           SCREEN_HEIGHT * 2, SDL_WINDOW_RESIZABLE);
 
     if (window == NULL)
     {
-        printf("Shit hit the window\n");
+        printf("Window initialization failure\n");
         exit(EXIT_FAILURE);
     }
 
@@ -176,7 +169,7 @@ int main(int argc, char **argv)
     
     if (renderer == NULL)
     {
-        printf("Shit hit the renderer\n");
+        printf("Renderer initialization failure\n");
         exit(EXIT_FAILURE);
     }
 
@@ -186,7 +179,7 @@ int main(int argc, char **argv)
 
     if (texture == NULL)
     {
-        printf("Shit hit the texture\n");
+        printf("Texture intialization failure\n");
         exit(EXIT_FAILURE);
     }
 
@@ -197,6 +190,7 @@ int main(int argc, char **argv)
     SDL_Event event;
     while (!done)
     {
+        // Poll the keyboard
         handleEvents(spaceInvaders, &event, &done);
 
         // True every 1/60 seconds
